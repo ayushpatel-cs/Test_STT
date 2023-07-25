@@ -35,41 +35,35 @@ struct Home : View {
     @State var recorder2: AVAudioRecorder!
     @State var alert = false
     @State var audios: [URL] = []
-    @State var audios2: [URL] = []
     @State var player: AVAudioPlayer?
     @StateObject var speechRecognizer = SpeechRecognizer()
     @State var transcript = ""
     var body: some View{
         
-        NavigationView{
-            
+        NavigationSplitView{
             VStack{
                 List(self.audios,id: \.self){
                     i in
                     Text(i.relativeString)
                 }
-                List(self.audios2,id: \.self){
-                    i in
-                    Text(i.relativeString)
-                }
-                Button(transcript){
+                Button("Hear/Reset"){
                     do {
                         var u = self.audios[0]
                         self.player = try AVAudioPlayer(contentsOf: u)
                         self.player?.play()
-//                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-//                        do {
-//                            for path in try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: .producesRelativePathURLs)
-//                                    
-//                            {
-//                                try FileManager.default.removeItem(at: path)
-//                            }
-//                        }
-//                        catch let error as NSError
-//                        {
-//                            print(error.localizedDescription)
-//                        }
-//
+                       let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        do {
+                            for path in try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: .producesRelativePathURLs)
+                                    
+                            {
+                                try FileManager.default.removeItem(at: path)
+                           }
+                        }
+                        catch let error as NSError
+                         {
+                             print(error.localizedDescription)
+                        }
+
                       }
                     catch {
                         // couldn't load file :(
@@ -112,7 +106,7 @@ struct Home : View {
                         //speechRecognizer.startTranscribing()
                         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                         let fileName = url.appendingPathComponent("myRcd\(self.audios.count + 1).m4a")
-                        let fileName2 = url.appendingPathComponent("SecondRcd\(self.audios2.count + 1).m4a")
+                        let fileName2 = url.appendingPathComponent("SecondRcd\(self.audios.count + 1).m4a")
                         let settings = [
                             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
                             AVSampleRateKey: 12000,
@@ -150,7 +144,13 @@ struct Home : View {
             }
             .navigationBarTitle("Record Audio")
         }
-        .alert(isPresented: self.$alert, content: {
+        detail: {
+            VStack {
+                Text(transcript)
+            }
+            .navigationTitle("Content")
+            .padding()
+        }.alert(isPresented: self.$alert, content: {
             Alert(title: Text("Error)"), message: Text("Enable Acess"))
         })
         .onAppear {
@@ -180,6 +180,7 @@ struct Home : View {
             }
         }
     }
+
     func getAudios(){
         do{
             let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
