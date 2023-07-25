@@ -48,6 +48,7 @@ struct Home : View {
                 }
                 Button("Hear/Reset"){
                     do {
+                        self.getAudios()
                         var u = self.audios[0]
                         self.player = try AVAudioPlayer(contentsOf: u)
                         self.player?.play()
@@ -63,6 +64,7 @@ struct Home : View {
                          {
                              print(error.localizedDescription)
                         }
+                        self.getAudios()
 
                       }
                     catch {
