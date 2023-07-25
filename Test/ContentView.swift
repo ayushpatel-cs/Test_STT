@@ -8,6 +8,8 @@
 import SwiftUI
 import AVKit
 import AVFoundation
+import Speech
+
 
 struct ContentView: View {
   var body: some View {
@@ -30,8 +32,10 @@ struct Home : View {
     // Fetch Audios...
     @State var session: AVAudioSession!
     @State var recorder: AVAudioRecorder!
+    @State var recorder2: AVAudioRecorder!
     @State var alert = false
     @State var audios: [URL] = []
+    @State var audios2: [URL] = []
     @State var player: AVAudioPlayer?
     @StateObject var speechRecognizer = SpeechRecognizer()
     @State var transcript = ""
@@ -44,25 +48,29 @@ struct Home : View {
                     i in
                     Text(i.relativeString)
                 }
+                List(self.audios2,id: \.self){
+                    i in
+                    Text(i.relativeString)
+                }
                 Button(transcript){
                     do {
                         var u = self.audios[0]
                         self.player = try AVAudioPlayer(contentsOf: u)
                         self.player?.play()
-                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        do {
-                            for path in try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: .producesRelativePathURLs)
-                                    
-                            {
-                                try FileManager.default.removeItem(at: path)
-                            }
-                        }
-                        catch let error as NSError
-                        {
-                            print(error.localizedDescription)
-                        }
-
-                    }
+//                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+//                        do {
+//                            for path in try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: .producesRelativePathURLs)
+//                                    
+//                            {
+//                                try FileManager.default.removeItem(at: path)
+//                            }
+//                        }
+//                        catch let error as NSError
+//                        {
+//                            print(error.localizedDescription)
+//                        }
+//
+                      }
                     catch {
                         // couldn't load file :(
                     }
@@ -74,29 +82,48 @@ struct Home : View {
                     do{
                         if self.record {
                             //Already Started Recording
+                            self.recorder2.stop()
                             self.recorder.stop()
                             self.record.toggle()
-                            speechRecognizer.stopTranscribing()
-                            transcript = speechRecognizer.transcript
+                            //speechRecognizer.stopTranscribing()
+                            //transcript = speechRecognizer.transcript
                             self.getAudios()
+                            let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+                            let request = SFSpeechURLRecognitionRequest(url: self.audios[0])
+
+                            request.shouldReportPartialResults = true
+
+                            if (recognizer?.isAvailable)! {
+
+                                recognizer?.recognitionTask(with: request) { result, error in
+                                    guard error == nil else { print("Error: \(error!)"); return }
+                                    guard let result = result else { print("No result!"); return }
+
+                                    transcript = result.bestTranscription.formattedString
+                                }
+                            } else {
+                                print("Device doesn't support speech recognition")
+                            }
                             return
                         }
+                        
     
-                        speechRecognizer.resetTranscript()
-                        speechRecognizer.startTranscribing()
+                        //speechRecognizer.resetTranscript()
+                        //speechRecognizer.startTranscribing()
                         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                         let fileName = url.appendingPathComponent("myRcd\(self.audios.count + 1).m4a")
+                        let fileName2 = url.appendingPathComponent("SecondRcd\(self.audios2.count + 1).m4a")
                         let settings = [
                             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
                             AVSampleRateKey: 12000,
                             AVNumberOfChannelsKey: 1,
                             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
                         ]
-                        
+                        self.recorder2 = try AVAudioRecorder(url: fileName2, settings: settings)
                         self.recorder = try AVAudioRecorder(url: fileName, settings: settings)
+                        self.recorder2.record()
                         self.recorder.record()
                         self.record.toggle()
-                        
                         
                     }
                     catch{
