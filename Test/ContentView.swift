@@ -35,9 +35,16 @@ struct Home : View {
     @State var recorder2: AVAudioRecorder!
     @State var alert = false
     @State var audios: [URL] = []
+    @State var count1 = 0
+    @State var count2 = 0
     @State var player: AVAudioPlayer?
     @StateObject var speechRecognizer = SpeechRecognizer()
     @State var transcript = ""
+    @State var transcript2 = ""
+    let recognizerOne = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    let recognizerTwo = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+
+
     var body: some View{
         
         NavigationSplitView{
@@ -48,6 +55,7 @@ struct Home : View {
                 }
                 Button("Hear/Reset"){
                     do {
+                        self.getAudios()
                         var u = self.audios[0]
                         self.player = try AVAudioPlayer(contentsOf: u)
                         self.player?.play()
@@ -56,7 +64,7 @@ struct Home : View {
                             for path in try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: .producesRelativePathURLs)
                                     
                             {
-                                try FileManager.default.removeItem(at: path)
+                            try FileManager.default.removeItem(at: path)
                            }
                         }
                         catch let error as NSError
@@ -71,57 +79,17 @@ struct Home : View {
                 }
                 Button(action: {
                     // Initialziation
-                    
                     //store aduio in document directory
-                    do{
-                        if self.record {
-                            //Already Started Recording
-                            self.recorder2.stop()
-                            self.recorder.stop()
-                            self.record.toggle()
-                            //speechRecognizer.stopTranscribing()
-                            //transcript = speechRecognizer.transcript
-                            self.getAudios()
-                            let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-                            let request = SFSpeechURLRecognitionRequest(url: self.audios[0])
-
-                            request.shouldReportPartialResults = true
-
-                            if (recognizer?.isAvailable)! {
-
-                                recognizer?.recognitionTask(with: request) { result, error in
-                                    guard error == nil else { print("Error: \(error!)"); return }
-                                    guard let result = result else { print("No result!"); return }
-
-                                    transcript = result.bestTranscription.formattedString
-                                }
-                            } else {
-                                print("Device doesn't support speech recognition")
-                            }
-                            return
-                        }
-                        
-    
-                        //speechRecognizer.resetTranscript()
-                        //speechRecognizer.startTranscribing()
-                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        let fileName = url.appendingPathComponent("myRcd\(self.audios.count + 1).m4a")
-                        let fileName2 = url.appendingPathComponent("SecondRcd\(self.audios.count + 1).m4a")
-                        let settings = [
-                            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                            AVSampleRateKey: 12000,
-                            AVNumberOfChannelsKey: 1,
-                            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-                        ]
-                        self.recorder2 = try AVAudioRecorder(url: fileName2, settings: settings)
-                        self.recorder = try AVAudioRecorder(url: fileName, settings: settings)
-                        self.recorder2.record()
-                        self.recorder.record()
+                    if self.record {
+                        //Already Started Recording
                         self.record.toggle()
-                        
+                        //speechRecognizer.stopTranscribing()
+                        //transcript = speechRecognizer.transcript
+                        return
                     }
-                    catch{
-                        print(error.localizedDescription)
+                    self.record.toggle()
+                    DispatchQueue.global(qos: .background).async {
+                        recorderOne()
                     }
                     
                 }) {
@@ -147,6 +115,8 @@ struct Home : View {
         detail: {
             VStack {
                 Text(transcript)
+                Text("----------------------------------------")
+                Text(transcript2)
             }
             .navigationTitle("Content")
             .padding()
@@ -199,5 +169,91 @@ struct Home : View {
             print(error.localizedDescription)
         }
     }
+    
+    func recorderTwo(){
+        let delay = 3.0
+        while true {
+            if !self.record {
+                break
+            }
+            do{
+                let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let fileName2 = url.appendingPathComponent("SecondRcd\(self.count2).m4a")
+                let settings = [
+                    AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                    AVSampleRateKey: 12000,
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+                ]
+                self.recorder2 = try AVAudioRecorder(url: fileName2, settings: settings)
+                self.recorder2.record()
+                Thread.sleep(forTimeInterval: delay)
+                self.recorder2.stop()
+                self.translate(file:fileName2, num: 2)
+                self.count2+=1
+            }
+            catch{
+                //Nothing
+            }
+        }
+    }
+    func recorderOne(){
+        let delay = 3.0
+        while true {
+            if !self.record {
+                break
+            }
+            do{
+                let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let fileName = url.appendingPathComponent("FirstRcd\(self.count1).m4a")
+                let settings = [
+                    AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                    AVSampleRateKey: 12000,
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+                ]
+                self.recorder = try AVAudioRecorder(url: fileName, settings: settings)
+                self.recorder.record()
+                Thread.sleep(forTimeInterval: delay)
+                self.translate(file:fileName,num: 1)
+                self.count1+=1
+            }
+            catch{
+                //Nothing
+            }
+        }
+    }
+    func translate(file: URL, num: Int){
+        
+        let request = SFSpeechURLRecognitionRequest(url: file)
+        request.shouldReportPartialResults = true
+        
+        if num == 1 {
+            if (self.recognizerOne?.isAvailable)! {
+                self.recognizerOne?.recognitionTask(with: request) { result, error in
+                    guard error == nil else { print("Error: \(error!)"); return }
+                    guard let result = result else { print("No result!"); return }
+
+                    transcript = result.bestTranscription.formattedString
+                }
+            } else {
+                print("Device doesn't support speech recognition")
+            }
+        }
+        else{
+            if (self.recognizerTwo?.isAvailable)! {
+                self.recognizerTwo?.recognitionTask(with: request) { result, error in
+                    guard error == nil else { print("Error: \(error!)"); return }
+                    guard let result = result else { print("No result!"); return }
+
+                    transcript2 = result.bestTranscription.formattedString
+                }
+            } else {
+                print("Device doesn't support speech recognition")
+            }
+        }
+        
+    }
+    
     
 }
