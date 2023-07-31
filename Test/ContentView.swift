@@ -74,57 +74,17 @@ struct Home : View {
                 Button(action: {
                     // Initialziation
                     
-                    //store aduio in document directory
-                    do{
-                        if self.record {
-                            //Already Started Recording
-                            self.recorder2.stop()
-                            self.recorder.stop()
-                            self.record.toggle()
-                            //speechRecognizer.stopTranscribing()
-                            //transcript = speechRecognizer.transcript
-                            self.getAudios()
-                            let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-                            let request = SFSpeechURLRecognitionRequest(url: self.audios[0])
-
-                            request.shouldReportPartialResults = true
-
-                            if (recognizer?.isAvailable)! {
-
-                                recognizer?.recognitionTask(with: request) { result, error in
-                                    guard error == nil else { print("Error: \(error!)"); return }
-                                    guard let result = result else { print("No result!"); return }
-
-                                    transcript = result.bestTranscription.formattedString
-                                }
-                            } else {
-                                print("Device doesn't support speech recognition")
-                            }
-                            return
-                        }
-                        
-    
-                        //speechRecognizer.resetTranscript()
-                        //speechRecognizer.startTranscribing()
-                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        let fileName = url.appendingPathComponent("myRcd\(self.audios.count + 1).m4a")
-                        let fileName2 = url.appendingPathComponent("SecondRcd\(self.audios.count + 1).m4a")
-                        let settings = [
-                            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                            AVSampleRateKey: 12000,
-                            AVNumberOfChannelsKey: 1,
-                            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-                        ]
-                        self.recorder2 = try AVAudioRecorder(url: fileName2, settings: settings)
-                        self.recorder = try AVAudioRecorder(url: fileName, settings: settings)
-                        self.recorder2.record()
-                        self.recorder.record()
+                //store aduio in document directory
+                    if self.record {
+                        //Already Started Recording
+                        self.speechRecognizer.stopTranscribing()
                         self.record.toggle()
-                        
+                        return
                     }
-                    catch{
-                        print(error.localizedDescription)
-                    }
+                    
+                    self.speechRecognizer.resetTranscript()
+                    self.speechRecognizer.startTranscribing()
+                    self.record.toggle()
                     
                 }) {
                     
@@ -148,7 +108,7 @@ struct Home : View {
         }
         detail: {
             VStack {
-                Text(transcript)
+                Text(self.speechRecognizer.transcript)
             }
             .navigationTitle("Content")
             .padding()
