@@ -36,8 +36,23 @@ struct Home : View {
     @State var alert = false
     @State var audios: [URL] = []
     @State var player: AVAudioPlayer?
-    @StateObject var speechRecognizer = SpeechRecognizer()
+    
+//TEST ON DEVICE
+//    @State var audioEngine = AVAudioEngine()
+//    @State var speechRecognizer = SFSpeechRecognizer()
+//    @State var request = SFSpeechAudioBufferRecognitionRequest()
+//    @State var recognitionTask: SFSpeechRecognitionTask?
+//    @State var transcriptionOutputLabel = ""
+//
+    
+    @State var speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))!
     @State var transcript = ""
+    @State var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    
+    @State var recognitionTask: SFSpeechRecognitionTask?
+    
+    @State var audioEngine = AVAudioEngine()
+    
     var body: some View{
         
         NavigationSplitView{
@@ -73,18 +88,40 @@ struct Home : View {
                 }
                 Button(action: {
                     // Initialziation
-                    
+                    recordButtonTapped()
                 //store aduio in document directory
-                    if self.record {
-                        //Already Started Recording
-                        self.speechRecognizer.stopTranscribing()
-                        self.record.toggle()
-                        return
-                    }
+                    //if self.record {
+                        //TEST ON DEVICE
+//                        self.audioEngine.stop()
+//                        self.request.endAudio()
+//                        self.recognitionTask?.cancel()
+                       //audioEngine.inputNode.removeTap(onBus: 0)
+                       
+                   //     return
+                   // }
                     
-                    self.speechRecognizer.resetTranscript()
-                    self.speechRecognizer.startTranscribing()
-                    self.record.toggle()
+                    // TEST ON DEVICE
+//                    let node = audioEngine.inputNode
+//                    let recordingFormat = node.outputFormat(forBus: 0)
+//                    node.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, _) in
+//                        self.request.append(buffer)
+//                    }
+//                    
+//                    audioEngine.prepare()
+//                       do {
+//                           try audioEngine.start()
+//                       } catch {
+//                           //Nothing
+//                       }
+//                    
+//                    
+//                    self.recognitionTask = speechRecognizer?.recognitionTask(with: request, resultHandler: { (result, _) in
+//                        if let transcription = result?.bestTranscription {
+//                            self.transcriptionOutputLabel = transcription.formattedString
+//                        }
+//                        })
+                    //self.record.toggle()
+                        
                     
                 }) {
                     
@@ -108,7 +145,7 @@ struct Home : View {
         }
         detail: {
             VStack {
-                Text(self.speechRecognizer.transcript)
+                Text(self.transcript)
             }
             .navigationTitle("Content")
             .padding()
@@ -118,6 +155,7 @@ struct Home : View {
         .onAppear {
             
             do{
+                
                 //Initializing...
                 self.session = AVAudioSession.sharedInstance()
                 try self.session.setCategory(.playAndRecord)
@@ -162,4 +200,86 @@ struct Home : View {
         }
     }
     
+    private func startRecording() throws {
+        
+        // Cancel the previous task if it's running.
+        if let recognitionTask = recognitionTask {
+            recognitionTask.cancel()
+            self.recognitionTask = nil
+        }
+        
+        // Configure the audio session for the app.
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        let inputNode = audioEngine.inputNode
+
+        // Create and configure the speech recognition request.
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { fatalError("Unable to created a SFSpeechAudioBufferRecognitionRequest object") }
+        recognitionRequest.shouldReportPartialResults = true
+        
+        // Keep speech recognition data on device
+        if #available(iOS 13, *) {
+            recognitionRequest.requiresOnDeviceRecognition = true
+        }
+        
+        // Create a recognition task for the speech recognition session.
+        // Keep a reference to the task so that it can be canceled.
+        self.record = true
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+            var isFinal = false
+            
+            if let result = result {
+                // Update the text view with the results.
+                self.transcript = result.bestTranscription.formattedString
+                isFinal = result.isFinal
+            }
+            
+            if error != nil || isFinal {
+                // Stop recognizing speech if there is a problem.
+                self.audioEngine.stop()
+                inputNode.removeTap(onBus: 0)
+                
+                self.recognitionRequest = nil
+                self.recognitionTask = nil
+                
+                self.record = false
+            }
+        }
+
+        // Configure the microphone input.
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
+            self.recognitionRequest?.append(buffer)
+        }
+        
+        audioEngine.prepare()
+        try audioEngine.start()
+        
+        // Let the user know to start talking.
+    }
+    
+    // MARK: SFSpeechRecognizerDelegate
+    
+    public func speechRecognizer(_ speechRecognizer: SFSpeechRecognizer, availabilityDidChange available: Bool) {
+        if available {
+            self.record = true
+        } else {
+            self.record = false
+        }
+    }
+    
+    func recordButtonTapped() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            recognitionRequest?.endAudio()
+            self.record = false
+        } else {
+            do {
+                try startRecording()
+            } catch {
+            }
+        }
+    }
 }
