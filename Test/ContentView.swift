@@ -76,7 +76,6 @@ struct Home : View {
                     do{
                         if self.record {
                             //Already Started Recording
-                            self.recorder2.stop()
                             self.recorder.stop()
                             self.record.toggle()
                             //speechRecognizer.stopTranscribing()
@@ -106,16 +105,13 @@ struct Home : View {
                         //speechRecognizer.startTranscribing()
                         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                         let fileName = url.appendingPathComponent("myRcd\(self.audios.count + 1).m4a")
-                        let fileName2 = url.appendingPathComponent("SecondRcd\(self.audios.count + 1).m4a")
                         let settings = [
                             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
                             AVSampleRateKey: 12000,
                             AVNumberOfChannelsKey: 1,
                             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
                         ]
-                        self.recorder2 = try AVAudioRecorder(url: fileName2, settings: settings)
                         self.recorder = try AVAudioRecorder(url: fileName, settings: settings)
-                        self.recorder2.record()
                         self.recorder.record()
                         self.record.toggle()
                         
